@@ -1,0 +1,8 @@
+---
+- name: Test connection to lab servers
+  hosts: lab_servers
+  gather_facts: no
+
+  tasks:
+    - name: Test connection
+      ping:
