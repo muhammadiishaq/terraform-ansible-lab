@@ -1,27 +1,28 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.99"
-    }
-  }
-}
-
 provider "aws" {
-  region = "us-west-1"  # Confirmed to be the correct region
+  region = "us-west-1"
 }
 
 resource "aws_security_group" "lab_sg" {
   name        = "lab-security-group"
-  description = "Allow SSH and Ansible access"
+  description = "Allow SSH, HTTP, and Ansible access"
 
+  # SSH Access
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Restrict to your IP in production
+    cidr_blocks = ["0.0.0.0/0"]  # WARNING: Open to all (for lab only)
   }
 
+  # HTTP Access (For Nginx)
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # Allows worldwide HTTP access
+  }
+
+  # Outbound traffic (Allow all)
   egress {
     from_port   = 0
     to_port     = 0
@@ -36,25 +37,13 @@ resource "aws_security_group" "lab_sg" {
 
 resource "aws_instance" "lab_instance" {
   count         = 2
-  ami           = "custom-ami-id" 
+  ami           = "ami-077c1137cbc2cd941"  # Ubuntu in us-west-1
   instance_type = "t2.micro"
-  key_name      = "keypair-name" # Verified key pair
-  vpc_security_group_ids = [aws_security_group.lab_sg.id]
+  key_name      = "terraform-ansible-lab"
+  vpc_security_group_ids = [aws_security_group.lab_sg.id]  # Attaches security group
 
   tags = {
     Name = "ansible-lab-instance-${count.index}"
-  }
-
-  # Wait for SSH to be available
-  provisioner "remote-exec" {
-    inline = ["echo 'SSH connection established'"]
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file("~/.ssh/id_rsa") # Path to your private key
-      host        = self.public_ip
-    }
   }
 }
 
@@ -62,8 +51,8 @@ resource "local_file" "ansible_inventory" {
   filename = "../ansible/hosts.ini"
   content = templatefile("inventory.tmpl", {
     instances = aws_instance.lab_instance[*]
-    ssh_user  = "ubuntu" # Default user for Ubuntu AMI
-    ssh_key   = "~/.ssh/id_rsa" # Path to your private key
+    ssh_user  = "ubuntu"
+    ssh_key   = "~/.ssh/your-private-key"
   })
 }
 
