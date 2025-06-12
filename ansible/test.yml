@@ -1,8 +1,33 @@
 ---
-- name: Test connection to lab servers
-  hosts: lab_servers
-  gather_facts: no
+- name: Configure Web Server
+  hosts: lab_servers  # Targets the group from hosts.ini
+  become: yes         # Run commands with sudo
 
   tasks:
-    - name: Test connection
-      ping:
+    - name: Update apt package cache
+      apt:
+        update_cache: yes
+      tags: update
+
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+      tags: nginx
+
+    - name: Ensure Nginx is running and enabled
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+      tags: nginx
+
+    - name: Create custom index.html
+      copy:
+        content: "Hello from {{ inventory_hostname }}!\n"
+        dest: /var/www/html/index.html
+      tags: content
+
+    - name: Show public IP (Debug)
+      debug:
+        msg: "Webserver available at http://{{ ansible_host }}"
